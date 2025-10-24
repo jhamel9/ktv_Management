@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KTV Bar Premium Pricing</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Load Three.js for 3D elements -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Load Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom font setup for Inter */
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        /* Simple icon styles for illustrative purposes */
+        .icon-circle {
+            width: 3.5rem;
+            height: 3.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            background-color: rgba(79, 70, 229, 0.1); /* Indigo 600 with opacity */
+        }
+        
+        /* --- Animation Classes for Scroll Effect --- */
+        .fade-in-up {
+            /* Initial state: Hidden and moved down */
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth transition */
+        }
+        .fade-in-up.animate {
+            /* Final state: Visible and in original position */
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- Pricing Card Styles --- */
+        .pricing-card {
+            padding: 2rem;
+            border-radius: 1rem;
+            background-color: white;
+            /* Using shadow-xl class from Tailwind */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); 
+            text-align: center;
+            border: 3px solid transparent; /* default border */
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Initial "Shuffle" effect: subtle rotation for dynamic look */
+        [data-shuffle="0"] {
+            transform: rotate(-1deg);
+        }
+        /* Highlighted Card (Center) */
+        .pricing-card.highlight {
+            border-color: #4f46e5; /* Indigo 600 */
+            transform: scale(1.03) translateY(-10px); /* Lift it slightly and straighten */
+            z-index: 20;
+        }
+        /* Third Card rotation (Applied to the second promo card) */
+        [data-shuffle="2"] {
+            transform: rotate(1deg);
+        }
+        
+        /* --- Hero Fade Effect --- */
+        #hero {
+            position: relative; 
+        }
+        .hero-fade-mask {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px; 
+            pointer-events: none; 
+            z-index: 5; 
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
+        }
+        
+        /* --- Promo 3D Container Styling (Shapes in the background) --- */
+        #discounts {
+            position: relative; 
+            /* Added overflow visible to allow 3D canvas to spill */
+            overflow: visible; 
+        }
+        #promo-3d-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            /* CRITICAL UPDATE: Extends the canvas into the next section */
+            height: calc(100% + 15rem); 
+            pointer-events: none; 
+            opacity: 0.4; 
+            z-index: 1; /* Set the 3D scene far back */
+        }
+
+        /* === NEW FADE MASK FOR THE TOP OF #features === */
+        /* This mask is placed at the top of the #features section to fade out the 3D spillover */
+        .top-section-mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 15rem; /* Matches the extension height */
+            pointer-events: none; 
+            z-index: 5; /* Above 3D (z-1), below content (z-10) */
+            /* Fades from Transparent (at the top, 0%) to Solid White (at the bottom, 100%) */
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #ffffff 100%);
+        }
+
+        /* === NEW: 3D Background for CTA Section === */
+        #cta-3d-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Header / Navigation Bar -->
+    <header class="sticky top-0 z-50 bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <!-- Logo -->
+            <div class="text-2xl font-extrabold text-indigo-600">
+                Project KTV
+            </div>
+            <!-- Navigation Links (Hidden on mobile, shown on desktop) -->
+            <nav class="hidden md:flex space-x-8 font-medium">
+                <!-- These links now use smooth scrolling via JavaScript -->
+                <a href="#hero" class="text-gray-600 hover:text-indigo-600 transition duration-150">Home</a>
+                <a href="#discounts" class="text-gray-600 hover:text-indigo-600 transition duration-150">Promos</a>
+                <a href="#features" class="text-gray-600 hover:text-indigo-600 transition duration-150">Features</a>
+                <a href="user.html" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-150 shadow-md">Book Now</a>
+            </nav>
+            <!-- Mobile Menu Button (SVG Icon) -->
+            <button class="md:hidden p-2 text-gray-600 rounded-lg hover:bg-gray-100 transition duration-150" aria-label="Toggle menu">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="hero" class="relative py-20 sm:py-32 bg-indigo-50 overflow-hidden">
+        
+        <!-- 3D Visualization Container - Particle Field Background (z-index: 0) -->
+        <div id="hero-3d-container" class="absolute inset-0 w-full h-full z-0 opacity-75">
+            <!-- Three.js Canvas will be appended here -->
+        </div>
+        
+        <!-- Fade to White Mask - Sits above the 3D particles and hero background, but below content -->
+        <div class="hero-fade-mask"></div>
+
+        <!-- Hero Content (z-index: 10) -->
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl sm:text-6xl font-extrabold text-gray-900 leading-tight mb-4 fade-in-up" data-delay="0">
+                Sing Your Heart Out with <span class="text-indigo-600">Premium KTV</span> Rates
+            </h1>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto mb-8 fade-in-up" data-delay="150">
+                The ultimate KTV experience in the city. Clear sound, comfortable rooms, and flexible **hourly pricing in Philippine Pesos (PHP).**
+            </p>
+            
+            <!-- Room Availability Status Section -->
+            <div id="room-status-container" class="mb-8 fade-in-up" data-delay="300">
+                <!-- NOTE: The text-base class is applied below, the number will be text-xl for contrast -->
+                <div id="room-status" class="inline-flex items-center text-base font-semibold px-6 py-3 rounded-full shadow-lg bg-gray-100 text-gray-700 transition duration-300">
+                    <!-- Content will be injected by JavaScript -->
+                    Checking Room Status...
+                </div>
+            </div>
+            
+            <div class="flex justify-center space-x-4 mb-16 fade-in-up" data-delay="500">
+                <a href="user.html" class="bg-indigo-600 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:bg-indigo-700 transition duration-300 transform hover:scale-105">
+                    Book Your Room Now
+                </a>
+                <a href="#discounts" class="bg-white text-indigo-600 border border-indigo-600 px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:bg-indigo-50 transition duration-300 transform hover:scale-105">
+                    View Promos
+                </a>
+            </div>
+
+            <!-- Pricing Cards Area -->
+            <div class="mt-8 fade-in-up" data-delay="650">
+                <p class="text-sm font-semibold text-gray-700 uppercase mb-4">Transparent & Flexible KTV Pricing (₱300 Base Rate/hr)</p>
+                <!-- Pricing Card Grid -->
+                <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 px-4 sm:px-6 lg:px-8">
+
+                    <!-- Card 1: 1 Hour Basic Rate (₱300) -->
+                    <div class="pricing-card transform transition duration-500 hover:scale-[1.05] hover:shadow-2xl hover:rotate-1" data-shuffle="0">
+                        <p class="text-sm font-semibold text-gray-500 uppercase mb-2">1 Hour Basic Rate</p>
+                        <div class="text-5xl font-extrabold text-gray-900 mb-4">₱300<span class="text-xl font-medium text-gray-500">/hr</span></div>
+                        <ul class="text-left text-gray-600 space-y-2 mb-6 text-sm">
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Unlimited Song Access</li>
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>High-Fidelity Audio Setup</li>
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Perfect for quick sessions</li>
+                        </ul>
+                        <a href="user.html" class="block w-full py-3 bg-gray-100 text-gray-800 font-bold rounded-lg hover:bg-gray-200 transition duration-300">Reserve a Slot</a>
+                    </div>
+
+                    <!-- Card 2: 3 Hour Barkada Package (₱855 total) - Highlighted -->
+                    <div class="pricing-card highlight transform transition duration-500 hover:scale-[1.05] hover:shadow-2xl hover:rotate-0" data-shuffle="1">
+                        <div class="absolute top-0 right-0 -mt-3 -mr-3 px-3 py-1 bg-indigo-600 text-white text-xs font-bold uppercase rounded-full shadow-lg">Best Value (₱285/hr)</div>
+                        <p class="text-sm font-semibold text-indigo-600 uppercase mb-2">3 Hour Barkada Package</p>
+                        <div class="text-5xl font-extrabold text-indigo-600 mb-4">₱855<span class="text-xl font-medium text-gray-500">/total</span></div>
+                        <ul class="text-left text-gray-600 space-y-2 mb-6 text-sm">
+                            <li class="flex items-center font-bold text-gray-800"><svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>~5% Savings (₱45 total)</li>
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Two (2) Complimentary Soft Drinks</li>
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Unlimited Song Access</li>
+                        </ul>
+                        <a href="user.html" class="block w-full py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300">Book 3 Hours</a>
+                    </div>
+
+                    <!-- Card 3: 5 Hour Ultimate Session (₱1,350 total) -->
+                    <div class="pricing-card transform transition duration-500 hover:scale-[1.05] hover:shadow-2xl hover:-rotate-1" data-shuffle="2">
+                        <p class="text-sm font-semibold text-gray-500 uppercase mb-2">5 Hour Ultimate Session</p>
+                        <div class="text-5xl font-extrabold text-gray-900 mb-4">₱1,350<span class="text-xl font-medium text-gray-500">/total</span></div>
+                        <ul class="text-left text-gray-600 space-y-2 mb-6 text-sm">
+                            <li class="flex items-center font-bold text-gray-800"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>~10% Savings (₱150 total)</li>
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Free Tempura & Fishball Platter</li>
+                            <li class="flex items-center"><svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>Complimentary Pitcher of Soda</li>
+                        </ul>
+                        <a href="user.html" class="block w-full py-3 bg-gray-100 text-gray-800 font-bold rounded-lg hover:bg-gray-200 transition duration-300">Book 5 Hours</a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Discounts and Promos Section (UPDATED DESIGN) -->
+    <section id="discounts" class="py-20 sm:py-28 bg-white relative">
+        <!-- The 3D container is now taller and spills into the next section -->
+        <div id="promo-3d-container"></div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-16">
+                <h2 class="text-base text-pink-600 font-semibold tracking-wide uppercase fade-in-up" data-delay="0">Extra Ways to Save</h2>
+                <p class="mt-2 text-3xl sm:text-4xl font-extrabold text-gray-900 fade-in-up" data-delay="150">
+                    Special Promos and Discount Packages
+                </p>
+                <p class="mt-4 text-gray-600 max-w-2xl mx-auto fade-in-up" data-delay="300">
+                    Makisama na! Enjoy even bigger savings with these limited-time offers, perfect for special occasions or late-night sessions.
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                
+                <!-- Promo Card 1: Birthday Discount - Now uses pricing-card styles and hover effects -->
+                <div class="pricing-card border-pink-400 border-4 transform transition duration-500 hover:scale-[1.05] hover:shadow-2xl hover:rotate-1 fade-in-up" data-delay="450" data-shuffle="0">
+                    <h3 class="text-2xl font-bold text-pink-700 mb-3 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-3 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15.546c-.524 0-1.034.148-1.5.421a7.197 7.197 0 01-1.35.807l-.603.366c-.36.219-.778.344-1.2.344H6c-1.5 0-3-.672-3-2V8c0-1.5.672-3 2-3h12c1.5 0 3 .672 3 2v6c0 1.328-.567 2.456-1.5 3.093z" /></svg>
+                        Birthday Blowout!
+                    </h3>
+                    <div class="text-5xl font-extrabold text-pink-600 mb-4">20%<span class="text-xl font-medium text-gray-500"> OFF</span></div>
+                    <p class="text-gray-700 mb-6">Celebrate your special day with a **20% discount** on your total room charge. Just present a valid ID on your birthday month!</p>
+                    <a href="user.html" class="block w-full py-3 bg-pink-100 text-pink-800 font-bold rounded-lg hover:bg-pink-200 transition duration-300">Claim this Promo</a>
+                </div>
+
+                <!-- Promo Card 2: Late Night Happy Hour - Now uses pricing-card styles and hover effects -->
+                <div class="pricing-card border-indigo-400 border-4 transform transition duration-500 hover:scale-[1.05] hover:shadow-2xl hover:-rotate-1" data-shuffle="2">
+                    <h3 class="text-2xl font-bold text-indigo-700 mb-3 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-3 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Midnight Madness
+                    </h3>
+                    <div class="text-5xl font-extrabold text-indigo-600 mb-4">15%<span class="text-xl font-medium text-gray-500"> OFF</span></div>
+                    <p class="text-gray-700 mb-6">All room packages are **15% off** during our late-night hours (12AM - 4AM). Perfect for those who love to sing until the sun comes up!</p>
+                    <a href="user.html" class="block w-full py-3 bg-indigo-100 text-indigo-800 font-bold rounded-lg hover:bg-indigo-200 transition duration-300">Book Late Night</a>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- REMOVED THE OLD FADE MASK HERE -->
+    </section>
+
+    <!-- Feature Showcase Section -->
+    <!-- Added relative and overflow-hidden here for the mask to work -->
+    <section id="features" class="py-20 sm:py-28 bg-white relative overflow-hidden">
+        
+        <!-- === NEW FADE MASK (CRITICAL) === -->
+        <!-- Placed at the top to fade out the 3D content spilling from the section above -->
+        <div class="top-section-mask"></div>
+
+        <!-- Content Wrapper to ensure text is above the mask (z-10 is above the mask's z-5) -->
+        <div class="relative z-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-base text-indigo-600 font-semibold tracking-wide uppercase fade-in-up" data-delay="0">The Project KTV Difference</h2>
+                    <p class="mt-2 text-3xl sm:text-4xl font-extrabold text-gray-900 fade-in-up" data-delay="150">
+                        Innovative Features Designed to Make You Sound Amazing
+                    </p>
+                </div>
+
+                <!-- Feature Cards Grid (4 columns on desktop) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    
+                    <!-- Feature 1: Lightning Fast Song Loading -->
+                    <div class="bg-white p-8 rounded-xl border border-indigo-100 shadow-xl transition duration-300 hover:shadow-2xl hover:scale-[1.02] fade-in-up" data-delay="300">
+                        <div class="icon-circle text-indigo-600 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">Instant Song Loading</h3>
+                        <p class="text-gray-500 text-sm">Our cutting-edge system loads songs instantly, ensuring no downtime between your biggest hits. Keep the party going!</p>
+                    </div>
+
+                    <!-- Feature 2: Fully Secure Rooms -->
+                    <div class="bg-white p-8 rounded-xl border border-indigo-100 shadow-xl transition duration-300 hover:shadow-2xl hover:scale-[1.02] fade-in-up" data-delay="450">
+                        <div class="icon-circle text-indigo-600 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 018.618 3.04A12.007 12.007 0 002.944 12c0 2.21.61 4.316 1.716 6.134A12.007 12.007 0 0012 21.056c2.21 0 4.316-.61 6.134-1.716A12.007 12.007 0 0021.056 12a11.955 11.955 0 01-3.04-8.618z" /></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">Private & Clean Rooms</h3>
+                        <p class="text-gray-500 text-sm">Enjoy your session in fully sanitized and private rooms. We maintain the highest standards of cleanliness and safety for all guests.</p>
+                    </div>
+
+                    <!-- Feature 3: Dedicated Service Support -->
+                    <div class="bg-white p-8 rounded-xl border border-indigo-100 shadow-xl transition duration-300 hover:shadow-2xl hover:scale-[1.02] fade-in-up" data-delay="600">
+                        <div class="icon-circle text-indigo-600 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10h4m-4 0h12m-12 0L9 15m0 4l3-4m3-4h-3m4 0h3m-7 4h7m-7 4h7m0 0l-3 4" /></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">On-Demand Service</h3>
+                        <p class="text-gray-500 text-sm">Quick access to our service staff via an in-room tablet for drinks, snacks, or technical assistance, ensuring absolute minimal waiting.</p>
+                    </div>
+                    
+                    <!-- Feature 4: Cloud Song Library -->
+                    <div class="bg-white p-8 rounded-xl border border-indigo-100 shadow-xl transition duration-300 hover:shadow-2xl hover:scale-[1.02] fade-in-up" data-delay="750">
+                        <div class="icon-circle text-indigo-600 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">Vast Song Library</h3>
+                        <p class="text-gray-500 text-sm">Access millions of songs from every genre and language, updated weekly. Never run out of songs to sing!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action / Contact Section -->
+    <section id="contact" class="py-20 bg-indigo-600 relative overflow-hidden">
+        <!-- NEW: 3D Background with White Shape Outlines -->
+        <div id="cta-3d-container"></div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-up relative z-10" data-delay="0">
+            <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+                Ready to Belt Out Your Favorite Song?
+            </h2>
+            <p class="text-xl text-indigo-200 max-w-2xl mx-auto mb-8">
+                Check room availability and book your session instantly. Sulit na sulit!
+            </p>
+            <div class="flex justify-center">
+                <a href="user.html" class="bg-white text-indigo-600 px-10 py-4 text-xl font-bold rounded-xl shadow-2xl hover:bg-gray-100 transition duration-300 transform hover:scale-105">
+                    Inquire Now
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 py-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
+            <p class="mb-4 text-lg font-semibold text-white">Project KTV</p>
+            
+            <!-- Social Media Icons -->
+            <div class="flex justify-center space-x-6 mb-6">
+                <a href="#" class="text-gray-400 hover:text-blue-500 transition duration-300 transform hover:scale-110" aria-label="Facebook">
+                    <i class="fab fa-facebook-f text-2xl"></i>
+                </a>
+                <a href="#" class="text-gray-400 hover:text-pink-500 transition duration-300 transform hover:scale-110" aria-label="Instagram">
+                    <i class="fab fa-instagram text-2xl"></i>
+                </a>
+                <a href="#" class="text-gray-400 hover:text-gray-300 transition duration-300 transform hover:scale-110" aria-label="GitHub">
+                    <i class="fab fa-github text-2xl"></i>
+                </a>
+            </div>
+            
+            <!-- Footer Links -->
+            <div class="flex justify-center space-x-6 mb-4 text-sm">
+                <a href="#" class="hover:text-indigo-400 transition duration-150">Privacy Policy</a>
+                <a href="#" class="hover:text-indigo-400 transition duration-150">Terms of Service</a>
+                <a href="#" class="hover:text-indigo-400 transition duration-150">Location Map</a>
+            </div>
+            
+            <p>&copy; 2025 Project KTV. All rights reserved.</p>
+            <p class="text-xs mt-2">Built with HTML, Tailwind CSS, and Three.js.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript for Scroll Animation, Smooth Scrolling, and Three.js (UPDATED) -->
+    <script>
+        // --- Shared Variables ---
+        const clock = new THREE.Clock(); // Used for delta time calculation
+
+        // --- HERO SCENE (Particles) Variables ---
+        let scene, camera, renderer, particles;
+        const container = document.getElementById('hero-3d-container');
+        const particleCount = 2000; 
+        let particleGeometry, positions;
+
+        // --- PROMO SCENE (Mesh) Variables ---
+        // Added variables for the three meshes and their corresponding outlines
+        let promoScene, promoCamera, promoRenderer, promoMesh, promoMesh2, promoMesh3; 
+        let promoOutline1, promoOutline2, promoOutline3;
+        const promoContainer = document.getElementById('promo-3d-container');
+
+        // --- CTA SCENE (White Outline Shapes) Variables ---
+        let ctaScene, ctaCamera, ctaRenderer;
+        let ctaOutlines = [];
+        const ctaContainer = document.getElementById('cta-3d-container');
+
+        // --- Firebase Initialization Stub (MANDATORY) ---
+        // Global variables for Firebase (MANDATORY)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth;
+
+        // The Firebase initialization logic below is commented out to prevent the 
+        // "SyntaxError: Cannot use import statement outside a module" in this single-file 
+        // environment, as module imports are not supported in the standard <script> tag here.
+        /*
+        async function initializeFirebase() {
+            // import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+            // import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+            // import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+            
+            if (firebaseConfig) {
+                // const app = initializeApp(firebaseConfig);
+                // db = getFirestore(app);
+                // auth = getAuth(app);
+                
+                // try {
+                //     if (initialAuthToken) {
+                //         await signInWithCustomToken(auth, initialAuthToken);
+                //     } else {
+                //         await signInAnonymously(auth);
+                //     }
+                // } catch (error) {
+                //     console.error("Firebase Auth Error:", error);
+                // }
+            } else {
+                console.warn("Firebase config not available. Running without database features.");
+            }
+        }
+        */
+        // End of Firebase Stub
+
+        // --- Hero Particles Initialization ---
+        function initHeroParticles() {
+            if (!container) return;
+            const containerRect = container.getBoundingClientRect();
+
+            // 1. Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); 
+            renderer.setSize(containerRect.width, containerRect.height);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // 2. Scene setup
+            scene = new THREE.Scene();
+            scene.background = null; 
+
+            // 3. Camera setup
+            camera = new THREE.PerspectiveCamera(60, containerRect.width / containerRect.height, 1, 1000); 
+            camera.position.z = 100; 
+
+            // 4. Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+            // 5. Geometry (Particle Field)
+            particleGeometry = new THREE.BufferGeometry();
+            positions = new Float32Array(particleCount * 3);
+            const particleColors = new Float32Array(particleCount * 3);
+            
+            const color1 = new THREE.Color(0x4f46e5); // Indigo 600
+            const color2 = new THREE.Color(0xc7d2fe); // Indigo 200 (lighter)
+
+            const maxRange = 200; 
+
+            for (let i = 0; i < particleCount; i++) {
+                // Position: Spread randomly within a large box
+                positions[i * 3 + 0] = (Math.random() * maxRange - maxRange / 2);
+                positions[i * 3 + 1] = (Math.random() * maxRange - maxRange / 2);
+                positions[i * 3 + 2] = (Math.random() * maxRange - maxRange / 2);
+
+                // Color: Interpolate between two shades of indigo randomly
+                let color = new THREE.Color();
+                color.lerpColors(color2, color1, Math.random());
+                particleColors[i * 3 + 0] = color.r;
+                particleColors[i * 3 + 1] = color.g;
+                particleColors[i * 3 + 2] = color.b;
+            }
+
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+            // 6. Material
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.8, 
+                vertexColors: true, 
+                blending: THREE.AdditiveBlending, 
+                transparent: true,
+                opacity: 0.7 
+            });
+
+            particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+        }
+
+        // --- Promo Mesh Initialization (New 3D Interactions) ---
+        function initPromoMesh() {
+            if (!promoContainer) return;
+            const containerRect = promoContainer.getBoundingClientRect();
+
+            // 1. Renderer setup
+            promoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); 
+            promoRenderer.setSize(containerRect.width, containerRect.height);
+            promoRenderer.setPixelRatio(window.devicePixelRatio);
+            promoContainer.appendChild(promoRenderer.domElement);
+
+            // 2. Scene setup
+            promoScene = new THREE.Scene();
+            promoScene.background = null; 
+
+            // 3. Camera setup - Closer view for a mesh
+            promoCamera = new THREE.PerspectiveCamera(70, containerRect.width / containerRect.height, 1, 100); 
+            promoCamera.position.z = 10; 
+
+            // 4. Lighting 
+            promoScene.add(new THREE.AmbientLight(0xffffff, 1.0)); 
+            const pointLight = new THREE.PointLight(0xffffff, 80, 50); 
+            pointLight.position.set(5, 5, 5);
+            promoScene.add(pointLight);
+
+            // 5. Geometry, Material & Mesh Setup
+            
+            // --- Shared Outline Material ---
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 1 }); // Dark Gray Outline
+
+            // Mesh 1: Octahedron (Original, Medium speed)
+            const geometry1 = new THREE.OctahedronGeometry(3);
+            const material1 = new THREE.MeshPhongMaterial({
+                color: 0x4f46e5, // Indigo 600
+                shininess: 100,
+                flatShading: true,
+                transparent: true,
+                opacity: 0.8 
+            });
+            promoMesh = new THREE.Mesh(geometry1, material1);
+            promoMesh.position.set(-6, 2, 0); 
+            promoScene.add(promoMesh);
+            
+            // Outline 1: Octahedron
+            const edges1 = new THREE.EdgesGeometry(geometry1);
+            promoOutline1 = new THREE.LineSegments(edges1, lineMaterial);
+            promoOutline1.position.copy(promoMesh.position); 
+            promoScene.add(promoOutline1);
+
+
+            // Mesh 2: Cube (New, Slower speed)
+            const geometry2 = new THREE.BoxGeometry(4, 4, 4);
+            const material2 = new THREE.MeshPhongMaterial({
+                color: 0xff6b81, // Pinkish red
+                shininess: 50,
+                transparent: true,
+                opacity: 0.7
+            });
+            promoMesh2 = new THREE.Mesh(geometry2, material2);
+            promoMesh2.position.set(8, -5, -5); 
+            promoScene.add(promoMesh2);
+
+            // Outline 2: Cube
+            const edges2 = new THREE.EdgesGeometry(geometry2);
+            promoOutline2 = new THREE.LineSegments(edges2, lineMaterial);
+            promoOutline2.position.copy(promoMesh2.position); 
+            promoScene.add(promoOutline2);
+
+
+            // Mesh 3: Torus Knot (New, Faster speed, different axis)
+            const geometry3 = new THREE.TorusKnotGeometry(2, 0.5, 100, 16);
+            const material3 = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8, // Sky Blue
+                metalness: 0.9,
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.9
+            });
+            promoMesh3 = new THREE.Mesh(geometry3, material3);
+            promoMesh3.position.set(0, -8, 2); 
+            promoScene.add(promoMesh3);
+
+            // Outline 3: Torus Knot
+            const edges3 = new THREE.EdgesGeometry(geometry3);
+            promoOutline3 = new THREE.LineSegments(edges3, lineMaterial);
+            promoOutline3.position.copy(promoMesh3.position); 
+            promoScene.add(promoOutline3);
+        }
+
+        // --- CTA 3D Background with Simple Shapes (Pyramids and Cubes) ---
+        function initCtaBackground() {
+            if (!ctaContainer) return;
+            const containerRect = ctaContainer.getBoundingClientRect();
+
+            // 1. Renderer setup
+            ctaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            ctaRenderer.setSize(containerRect.width, containerRect.height);
+            ctaRenderer.setPixelRatio(window.devicePixelRatio);
+            ctaContainer.appendChild(ctaRenderer.domElement);
+
+            // 2. Scene setup
+            ctaScene = new THREE.Scene();
+            ctaScene.background = null;
+
+            // 3. Camera setup
+            ctaCamera = new THREE.PerspectiveCamera(75, containerRect.width / containerRect.height, 0.1, 1000);
+            ctaCamera.position.z = 15;
+
+            // 4. Create pyramids and cubes positioned on the sides
+            const pyramidGeometry = new THREE.ConeGeometry(1.5, 3, 4); // Pyramid is a cone with 4 sides
+            const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+            
+            // White outline material
+            const outlineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xffffff, 
+                linewidth: 1,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            // Create pyramids on the left side
+            for (let i = 0; i < 4; i++) {
+                const pyramidEdges = new THREE.EdgesGeometry(pyramidGeometry);
+                const pyramidOutline = new THREE.LineSegments(pyramidEdges, outlineMaterial);
+                
+                // Position pyramids on the left side
+                const x = -10 + (Math.random() * 2);
+                const y = (Math.random() - 0.5) * 12;
+                const z = (Math.random() - 0.5) * 8;
+                
+                pyramidOutline.position.set(x, y, z);
+                
+                // Add some initial rotation
+                pyramidOutline.userData = {
+                    rotationSpeedX: (Math.random() - 0.5) * 0.01,
+                    rotationSpeedY: (Math.random() - 0.5) * 0.01,
+                    rotationSpeedZ: (Math.random() - 0.5) * 0.01,
+                    originalPosition: { x, y, z },
+                    hoverOffset: { x: 0, y: 0, z: 0 },
+                    isHovering: false
+                };
+                
+                ctaScene.add(pyramidOutline);
+                ctaOutlines.push(pyramidOutline);
+            }
+
+            // Create cubes on the right side
+            for (let i = 0; i < 4; i++) {
+                const cubeEdges = new THREE.EdgesGeometry(cubeGeometry);
+                const cubeOutline = new THREE.LineSegments(cubeEdges, outlineMaterial);
+                
+                // Position cubes on the right side
+                const x = 10 + (Math.random() * 2);
+                const y = (Math.random() - 0.5) * 12;
+                const z = (Math.random() - 0.5) * 8;
+                
+                cubeOutline.position.set(x, y, z);
+                
+                // Add some initial rotation
+                cubeOutline.userData = {
+                    rotationSpeedX: (Math.random() - 0.5) * 0.01,
+                    rotationSpeedY: (Math.random() - 0.5) * 0.01,
+                    rotationSpeedZ: (Math.random() - 0.5) * 0.01,
+                    originalPosition: { x, y, z },
+                    hoverOffset: { x: 0, y: 0, z: 0 },
+                    isHovering: false
+                };
+                
+                ctaScene.add(cubeOutline);
+                ctaOutlines.push(cubeOutline);
+            }
+
+            // Add event listeners for hover interaction
+            ctaContainer.addEventListener('mousemove', onCtaMouseMove);
+            ctaContainer.addEventListener('mouseleave', onCtaMouseLeave);
+        }
+
+        // --- CTA Hover Interaction Functions ---
+        function onCtaMouseMove(event) {
+            if (!ctaCamera || !ctaOutlines.length) return;
+            
+            // Calculate mouse position in normalized device coordinates (-1 to +1)
+            const rect = ctaContainer.getBoundingClientRect();
+            const mouse = {
+                x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+                y: -((event.clientY - rect.top) / rect.height) * 2 + 1
+            };
+            
+            // Create a raycaster from the camera through the mouse position
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, ctaCamera);
+            
+            // Check for intersections with all outlines
+            const intersects = raycaster.intersectObjects(ctaOutlines);
+            
+            // Reset all outlines
+            ctaOutlines.forEach(outline => {
+                outline.userData.isHovering = false;
+                outline.userData.hoverOffset = { x: 0, y: 0, z: 0 };
+                outline.material.opacity = 0.7;
+                outline.scale.set(1, 1, 1);
+            });
+            
+            // If there's an intersection, highlight the first one
+            if (intersects.length > 0) {
+                const outline = intersects[0].object;
+                outline.userData.isHovering = true;
+                outline.material.opacity = 1;
+                outline.scale.set(1.2, 1.2, 1.2);
+                
+                // Calculate hover offset based on mouse position
+                outline.userData.hoverOffset.x = mouse.x * 0.5;
+                outline.userData.hoverOffset.y = mouse.y * 0.5;
+            }
+        }
+
+        function onCtaMouseLeave() {
+            // Reset all outlines when mouse leaves
+            ctaOutlines.forEach(outline => {
+                outline.userData.isHovering = false;
+                outline.userData.hoverOffset = { x: 0, y: 0, z: 0 };
+                outline.material.opacity = 0.7;
+                outline.scale.set(1, 1, 1);
+            });
+        }
+
+        // --- Resize Handler (Handles all scenes) ---
+        function onWindowResize() {
+            // Hero Resize
+            if (renderer && camera && container) {
+                const rect = container.getBoundingClientRect();
+                camera.aspect = rect.width / rect.height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(rect.width, rect.height);
+            }
+            // Promo Resize
+            if (promoRenderer && promoCamera && promoContainer) {
+                const rect = promoContainer.getBoundingClientRect();
+                promoCamera.aspect = rect.width / rect.height;
+                promoCamera.updateProjectionMatrix();
+                promoRenderer.setSize(rect.width, rect.height);
+            }
+            // CTA Resize
+            if (ctaRenderer && ctaCamera && ctaContainer) {
+                const rect = ctaContainer.getBoundingClientRect();
+                ctaCamera.aspect = rect.width / rect.height;
+                ctaCamera.updateProjectionMatrix();
+                ctaRenderer.setSize(rect.width, rect.height);
+            }
+        }
+
+        // --- Parallax Effect Handler (ENHANCED for UP/DOWN scrolling visibility) ---
+        function handleParallax() {
+            if (!promoContainer || !promoCamera || !promoMesh || !promoMesh2 || !promoMesh3) return;
+
+            // Get the position of the promo section
+            const rect = promoContainer.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const scrollY = window.scrollY || window.pageYOffset;
+
+            // Check if the section is visible or nearby
+            if (rect.top > viewportHeight || rect.bottom < 0) {
+                return; 
+            }
+
+            // Calculate normalized scroll factor (0 when section hits bottom of viewport, 1 when section hits top of viewport)
+            const scrollFactor = (scrollY - (promoContainer.offsetTop - viewportHeight)) / (viewportHeight + rect.height);
+            const normalizedFactor = Math.max(-0.5, Math.min(1.5, scrollFactor));
+            
+            // Camera shift will range from -2 to +2 (Parallax depth effect)
+            const cameraShift = (normalizedFactor - 0.5) * 4; 
+            promoCamera.position.y = cameraShift; 
+            
+            // Apply Parallax to Meshes (Adjusted multipliers for a more pronounced effect)
+            
+            // Mesh 1 (Octahedron, z=0, Medium Parallax - increased from 0.5 to 0.7)
+            const shift1 = cameraShift * 0.7; 
+            promoMesh.position.y = 2 + shift1; 
+            promoOutline1.position.y = promoMesh.position.y; 
+
+            // Mesh 2 (Cube, z=-5, Low Parallax - furthest back - increased from 0.2 to 0.3)
+            const shift2 = cameraShift * 0.3;
+            promoMesh2.position.y = -5 + shift2; 
+            promoOutline2.position.y = promoMesh2.position.y; 
+
+            // Mesh 3 (Torus Knot, z=2, High Parallax - closest - increased from 0.8 to 1.1)
+            const shift3 = cameraShift * 1.1;
+            promoMesh3.position.y = -8 + shift3; 
+            promoOutline3.position.y = promoMesh3.position.y; 
+        }
+
+
+        // --- Animation Loop (Renders all scenes) ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta(); 
+
+            // 1. Hero Particle Animation
+            if (particles && renderer && scene && camera) {
+                particles.rotation.x += 0.05 * delta; 
+                particles.rotation.y += 0.01 * delta;
+
+                // Simple 'forward' movement effect 
+                const flowSpeed = 5;
+                particles.position.z += flowSpeed * delta;
+                if (particles.position.z > 50) {
+                    particles.position.z = 0;
+                }
+                renderer.render(scene, camera);
+            }
+            
+            // 2. Promo Mesh Animation (Rotation)
+            if (promoMesh && promoMesh2 && promoMesh3 && promoRenderer && promoScene && promoCamera && promoOutline1 && promoOutline2 && promoOutline3) {
+                // Octahedron (Original, Medium speed)
+                promoMesh.rotation.x += 0.3 * delta;
+                promoMesh.rotation.y += 0.2 * delta;
+                promoOutline1.rotation.copy(promoMesh.rotation); 
+
+                // Cube (New, Slower speed)
+                promoMesh2.rotation.y += 0.1 * delta;
+                promoMesh2.rotation.z += 0.05 * delta;
+                promoOutline2.rotation.copy(promoMesh2.rotation); 
+
+                // Torus Knot (New, Faster speed, different axis)
+                promoMesh3.rotation.z -= 0.4 * delta;
+                promoOutline3.rotation.copy(promoMesh3.rotation); 
+
+                promoRenderer.render(promoScene, promoCamera);
+            }
+            
+            // 3. CTA Background Animation
+            if (ctaRenderer && ctaScene && ctaCamera) {
+                // Animate all outlines
+                ctaOutlines.forEach(outline => {
+                    // Apply rotation
+                    outline.rotation.x += outline.userData.rotationSpeedX;
+                    outline.rotation.y += outline.userData.rotationSpeedY;
+                    outline.rotation.z += outline.userData.rotationSpeedZ;
+                    
+                    // Apply hover offset if hovering
+                    if (outline.userData.isHovering) {
+                        outline.position.x = outline.userData.originalPosition.x + outline.userData.hoverOffset.x;
+                        outline.position.y = outline.userData.originalPosition.y + outline.userData.hoverOffset.y;
+                    } else {
+                        // Smoothly return to original position
+                        outline.position.x += (outline.userData.originalPosition.x - outline.position.x) * 0.1;
+                        outline.position.y += (outline.userData.originalPosition.y - outline.position.y) * 0.1;
+                    }
+                });
+                
+                ctaRenderer.render(ctaScene, ctaCamera);
+            }
+        }
+        
+        // --- Scroll Animation Setup ---
+        function setupScrollAnimation() {
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.1 
+            };
+
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const element = entry.target;
+                        const delay = parseInt(element.getAttribute('data-delay') || 0);
+
+                        setTimeout(() => {
+                            element.classList.add('animate');
+                        }, delay);
+
+                        observer.unobserve(element);
+                    }
+                });
+            }, observerOptions);
+
+            const animatedElements = document.querySelectorAll('.fade-in-up');
+            animatedElements.forEach(element => {
+                observer.observe(element);
+            });
+        }
+        
+        // --- NEW: Smooth Scrolling Implementation ---
+        function applySmoothScrolling() {
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                // Exclude links that are just '#' or contain no ID
+                if (!anchor.getAttribute('href') || anchor.getAttribute('href') === '#') return;
+
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+
+                    if (targetElement) {
+                        // Use scrollIntoView with smooth behavior for seamless transition
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start' // Scroll until the element's top is at the top of the viewport
+                        });
+                    }
+                });
+            });
+        }
+
+
+        // --- Room Availability Simulation ---
+        function checkRoomAvailability() {
+            const statusEl = document.getElementById('room-status');
+            if (!statusEl) return;
+
+            // 1. Simulate loading state
+            statusEl.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Checking Real-time Availability...
+            `;
+            // Reset classes
+            statusEl.className = 'inline-flex items-center text-base font-semibold px-6 py-3 rounded-full shadow-lg transition duration-300 bg-gray-100 text-gray-700';
+
+            // 2. Simulate a network delay (1.5 seconds)
+            setTimeout(() => {
+                const availableRooms = Math.floor(Math.random() * 11); 
+                let statusTextHTML = '';
+                let statusClass = '';
+
+                if (availableRooms > 5) {
+                    statusClass = 'bg-green-100 text-green-800';
+                    statusTextHTML = `<svg class="h-6 w-6 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 018.618 3.04A12.007 12.007 0 002.944 12c0 2.21.61 4.316 1.716 6.134A12.007 12.007 0 0012 21.056c2.21 0 4.316-.61 6.134-1.716A12.007 12.007 0 0021.056 12a11.955 11.955 0 01-3.04-8.618z" /></svg> <span class="text-xl font-extrabold text-green-900">${availableRooms}</span> Rooms Available Now!`;
+                
+                } else if (availableRooms >= 1) {
+                    statusClass = 'bg-yellow-100 text-yellow-800';
+                    statusTextHTML = `<svg class="h-6 w-6 mr-2 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.3 16.546c-.77 1.333.192 3 1.732 3z" /></svg>Only <span class="text-xl font-extrabold text-yellow-900">${availableRooms}</span> Rooms Left! Book Fast!`;
+                
+                } else {
+                    statusClass = 'bg-red-100 text-red-800';
+                    statusTextHTML = `<svg class="h-6 w-6 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span class="text-xl font-extrabold text-red-900">${availableRooms}</span> Rooms Left! Fully Booked!`;
+                }
+                
+                // 3. Update the DOM with final status
+                statusEl.innerHTML = statusTextHTML;
+                statusEl.classList.remove('bg-gray-100', 'text-gray-700', 'text-lg');
+                statusEl.classList.add(...statusClass.split(' '));
+                
+            }, 1500); // 1.5 second simulated delay
+        }
+
+
+        // --- Main Entry Point ---
+        window.onload = function () {
+            // 1. Initialize 3D scenes and attach resize listener once
+            initHeroParticles(); 
+            initPromoMesh();
+            initCtaBackground(); // NEW: Initialize CTA 3D background
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // 2. Start the 3D animation loop
+            animate();
+            
+            // 3. Setup the scroll-reveal animations for other elements
+            setupScrollAnimation();
+            
+            // 4. Check and display room availability
+            checkRoomAvailability();
+
+            // 5. Setup Parallax effect for the promo section (ENHANCED)
+            window.addEventListener('scroll', handleParallax, false);
+            
+            // 6. Apply smooth scrolling to header links (NEW)
+            applySmoothScrolling();
+        }
+    </script>
+
+</body>
+</html>

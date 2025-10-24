@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KTV Room Management Dashboard</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Custom Tailwind Configuration for the Indigo theme
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        indigo: {
+                            50: '#EEF2FF',
+                            100: '#E0E7FF',
+                            200: '#C7D2FE',
+                            300: '#A5B4FC',
+                            400: '#818CF8',
+                            500: '#6366F1',
+                            600: '#4F46E5', // Primary
+                            700: '#4338CA', // Darker
+                            800: '#3730A3',
+                            900: '#312E81'  // Dark CTA
+                        },
+                        gray: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e2937',
+                            900: '#0f172a',
+                        }
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        /* Main body style for a softer, modern feel */
+        body { background-color: #f8fafc; color: #1e2937; font-family: 'Inter', sans-serif; }
+        
+        /* Modal Animation Styles */
+        .modal {
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0.3s, opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .modal.is-open {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-content {
+            transform: scale(0.95);
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .modal.is-open .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
+</head>
+<body>
+    <canvas id="particle-canvas" class="fixed top-0 left-0 w-full h-full z-[-1]"></canvas>
+
+    <div id="app" class="min-h-screen p-4 sm:p-6 lg:p-8">
+        <header class="mb-6 pb-4 border-b border-gray-300 flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-indigo-600">KTV Cash Register & Management</h1>
+            <div id="auth-status" class="text-sm text-gray-600 mt-2 md:mt-0">
+                Loading...
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="flex space-x-1 sm:space-x-2 border-b border-gray-300 mb-6 overflow-x-auto">
+            <button class="tab-button p-3 rounded-t-lg transition-all duration-200 text-gray-700 hover:bg-gray-200 border-b-2 border-transparent" data-tab="rooms">Room Status (10)</button>
+            <button class="tab-button p-3 rounded-t-lg transition-all duration-200 text-gray-700 hover:bg-gray-200 border-b-2 border-transparent" data-tab="register">New Registration</button>
+            <button class="tab-button p-3 rounded-t-lg transition-all duration-200 text-gray-700 hover:bg-gray-200 border-b-2 border-transparent" data-tab="menu">Menu</button>
+            <button class="tab-button p-3 rounded-t-lg transition-all duration-200 text-gray-700 hover:bg-gray-200 border-b-2 border-transparent" data-tab="queue">Queue & Reservations</button>
+            <button class="tab-button p-3 rounded-t-lg transition-all duration-200 text-gray-700 hover:bg-gray-200 border-b-2 border-transparent" data-tab="analytics">Analytics Dashboard</button>
+        </div>
+
+        <!-- Tab Content Containers -->
+        <div id="tab-rooms" class="tab-content grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <!-- Room cards will be rendered here -->
+            <div class="text-center text-gray-500 col-span-full">Loading Room Data...</div>
+        </div>
+
+        <!-- NEW MENU TAB with Search -->
+        <div id="tab-menu" class="tab-content hidden max-w-7xl mx-auto">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-900">KTV Food and Beverage Menu</h2>
+            <div class="mb-6">
+                <input type="text" id="menu-search-input" placeholder="Search for food or drinks..." 
+                       class="w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3" 
+                       oninput="window.renderMenuTab(this.value)">
+            </div>
+            <div id="menu-display-container"></div>
+        </div>
+        
+        <div id="tab-register" class="tab-content hidden max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-900">Register New Session (Pay Upfront)</h2>
+            <div id="room-assignment-indicator" class="bg-indigo-100 p-3 rounded-lg mb-6 hidden border border-indigo-200">
+                <p class="text-lg font-bold text-indigo-700">
+                    Checking into: <span id="target-room-name" class="text-gray-900">Automatically Assigned</span>
+                </p>
+                <input type="hidden" id="target-room-id" value="">
+            </div>
+            <form id="register-form">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="customerName" class="block text-sm font-medium text-gray-700">Customer Name</label>
+                        <input type="text" id="customerName" required class="mt-1 block w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3">
+                    </div>
+                    <div>
+                        <label for="peopleCount" class="block text-sm font-medium text-gray-700">Guests (Max 10)</label>
+                        <input type="number" id="peopleCount" required min="1" max="10" value="1" class="mt-1 block w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3">
+                    </div>
+                    <div>
+                        <label for="sessionDuration" class="block text-sm font-medium text-gray-700">Duration (Hours)</label>
+                        <select id="sessionDuration" required class="mt-1 block w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3">
+                            <option value="1">1 Hour</option> <option value="2">2 Hours</option> <option value="3">3 Hours</option> <option value="4">4 Hours</option> <option value="5">5 Hours</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="discountType" class="block text-sm font-medium text-gray-700">Discount</label>
+                        <select id="discountType" class="mt-1 block w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3">
+                            <option value="none">None (300₱/hr)</option> <option value="birthday">Birthday (10% Off)</option> <option value="holiday">Holiday (15% Off)</option> <option value="weekend">Weekend (5% Off)</option>
+                        </select>
+                    </div>
+                </div>
+                <h3 class="text-xl font-semibold mt-8 mb-4 text-gray-900">Add-ons (Food & Drinks)</h3>
+                <div class="space-y-4 p-4 rounded-lg border border-indigo-200 bg-indigo-100">
+                    <button type="button" onclick="openModal('addons-modal')" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        <span>Add Food & Drinks (<span id="addons-count">0</span> items selected)</span>
+                    </button>
+                    <div id="addons-summary" class="flex flex-wrap gap-2 text-sm text-indigo-800 min-h-[24px]"></div>
+                </div>
+                <div class="mt-8 pt-4 border-t border-gray-300 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <p class="text-lg font-bold text-indigo-700">Estimated UPFRONT Payment: <span class="text-2xl text-gray-900" id="estimated-room-charge">0.00</span> ₱</p>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                        <span>Process Registration & Check-in</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="tab-queue" class="tab-content hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-900">Online Reservations</h2>
+            <div id="online-reservations-list" class="space-y-4"></div>
+            <h2 class="text-2xl font-semibold mb-4 mt-8 text-gray-900">Main Queue</h2>
+            <div id="queue-list" class="space-y-4"></div>
+            <h2 class="text-2xl font-semibold mb-4 mt-8 text-gray-900">Active Room Reservations (Near End)</h2>
+            <div id="reservations-list" class="space-y-4"></div>
+        </div>
+
+        <div id="tab-analytics" class="tab-content hidden">
+            <h2 class="text-2xl font-semibold mb-6 text-gray-900">Analytics Dashboard</h2>
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><p class="text-sm text-gray-500">Total Revenue</p><p id="kpi-total-revenue" class="text-3xl font-bold text-indigo-600">0 ₱</p></div>
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><p class="text-sm text-gray-500">Avg. Revenue / Visit</p><p id="kpi-avg-revenue" class="text-3xl font-bold text-indigo-600">0 ₱</p></div>
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><p class="text-sm text-gray-500">Busiest Hour</p><p id="kpi-busiest-hour" class="text-3xl font-bold text-indigo-600">N/A</p></div>
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><p class="text-sm text-gray-500">Top Add-on</p><p id="kpi-top-addon" class="text-3xl font-bold text-indigo-600">N/A</p></div>
+            </div>
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><h3 class="font-semibold mb-2 text-gray-800">Daily Revenue (Last 30 Days)</h3><canvas id="daily-revenue-chart"></canvas></div>
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><h3 class="font-semibold mb-2 text-gray-800">Peak Business Hours</h3><canvas id="peak-hours-chart"></canvas></div>
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><h3 class="font-semibold mb-2 text-gray-800">Revenue by Room</h3><canvas id="room-revenue-chart"></canvas></div>
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200"><h3 class="font-semibold mb-2 text-gray-800">Most Popular Add-ons</h3><canvas id="popular-addons-chart"></canvas></div>
+            </div>
+            <!-- Transaction Logs -->
+            <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200">
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                    <h3 class="font-semibold text-gray-800 text-lg">Recent Transaction Logs</h3>
+                    <input type="text" id="analytics-log-search-input" placeholder="Search by customer name..."
+                           class="w-full sm:w-64 rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+                           oninput="window.renderAnalyticsLogs(this.value)">
+                </div>
+                <div class="overflow-x-auto max-h-96">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th class="p-3 font-semibold text-gray-700">Timestamp</th>
+                                <th class="p-3 font-semibold text-gray-700">Action</th>
+                                <th class="p-3 font-semibold text-gray-700">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analytics-log-table-body" class="divide-y divide-gray-200">
+                            <!-- Log rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex justify-center items-center p-4" onclick="if (event.target === this) closeModal('checkout-modal')">
+        <div class="modal-content bg-white p-8 rounded-xl max-w-md w-full shadow-2xl">
+            <h3 class="text-2xl font-bold mb-4 text-gray-900">Checkout & Final Bill</h3>
+            <div id="final-bill-details" class="space-y-2 mb-6 text-gray-700"></div>
+            <p class="text-3xl font-extrabold text-red-600 mb-6">Total Due NOW: <span id="final-total">0.00</span> ₱</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeModal('checkout-modal')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">Close</button>
+                <button id="confirm-checkout-btn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Confirm Checkout</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ADD-ONS SELECTION MODAL (For Initial Registration) -->
+    <div id="addons-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex justify-center items-center p-4" onclick="if (event.target === this) closeAddonsModal()">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+            <h3 class="text-2xl font-bold mb-4 text-gray-900 flex-shrink-0">Select Initial Add-ons</h3>
+            <div class="mb-4 flex-shrink-0">
+                <input type="text" id="addons-search-input" placeholder="Search for add-ons..." class="w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3" oninput="window.renderAddonsModalContent(this.value)">
+            </div>
+            <div class="flex-grow overflow-y-auto -mr-2 pr-2">
+                <div id="addons-modal-container" class="space-y-3"></div>
+            </div>
+            <div class="mt-6 flex justify-between items-center border-t pt-4 border-gray-300 flex-shrink-0">
+                <p class="text-lg font-bold text-indigo-700">Add-ons Subtotal: <span class="text-gray-900" id="addons-subtotal">0.00</span> ₱</p>
+                <button type="button" onclick="closeAddonsModal()" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md">Done Selecting</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- NEW ORDER MODAL (For Occupied Rooms) -->
+    <div id="order-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex justify-center items-center p-4" onclick="if (event.target === this) closeModal('order-modal')">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex-shrink-0">
+                <h3 class="text-2xl font-bold mb-2 text-gray-900">Add New Order (Charged at Checkout)</h3>
+                <p class="text-lg font-bold text-indigo-700 mb-4">Target Room: <span id="order-room-name" class="text-gray-900"></span></p>
+                <div class="mb-4">
+                    <input type="text" id="order-search-input" placeholder="Search for food or drinks..." class="w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3" oninput="window.renderOrderModalContent(this.value)">
+                </div>
+            </div>
+            <div class="flex-grow overflow-y-auto -mr-2 pr-2">
+                <div id="order-modal-container" class="space-y-3"></div>
+            </div>
+            <div class="mt-6 flex justify-between items-center border-t pt-4 border-gray-300 flex-shrink-0">
+                <p class="text-lg font-bold text-red-600">Order Subtotal: <span id="order-subtotal">0.00</span> ₱</p>
+                <button type="button" onclick="window.handleConfirmNewOrder()" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-200 shadow-md">Confirm Order & Add to Bill</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Switcher -->
+    <button type="button" onclick="window.location.href='user.html'" title="Switch to Customer View" class="fixed bottom-6 right-6 bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-all duration-300 z-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+
+    <script>
+        // --- App State & Config ---
+        const APP_STORAGE_KEY = 'ktvDashboardState_v1';
+        let db = { rooms: [], queue: [], onlineBookings: [], logs: [] };
+        let userId = 'local-admin';
+        
+        // --- Temporary UI State (not persisted) ---
+        let activeTab = 'rooms';
+        let selectedAddons = [];
+        let currentRoomIdForOrder = null;
+        let currentOrderAddons = [];
+        let chartInstances = {}; // To hold our chart objects
+
+        // --- Core Data Structures & Constants ---
+        const ROOM_RATE_PER_HOUR = 300;
+        const DISCOUNT_RATES = { none: 0, birthday: 0.10, holiday: 0.15, weekend: 0.05 };
+        const menu = {
+            drinks: [ { name: 'Coke', price: 50, icon: '🥤' }, { name: 'Sprite', price: 50, icon: '🥤' }, { name: 'Iced Tea', price: 60, icon: '🍹' }, { name: 'Juice', price: 70, icon: '🍎' }, { name: 'Water', price: 30, icon: '💧' }, ],
+            beer: [ { name: 'San Mig Light', price: 80, icon: '🍺' }, { name: 'Red Horse', price: 75, icon: '🍺' }, { name: 'Heineken', price: 100, icon: '🍻' }, { name: 'Corona', price: 150, icon: '🍻' }, { name: 'Tanduay', price: 50, icon: '🥃' }, ],
+            food: [ { name: 'Nachos', price: 180, icon: '🧀' }, { name: 'French Fries', price: 120, icon: '🍟' }, { name: 'Calamares', price: 250, icon: '🦑' }, { name: 'Sisig', price: 350, icon: '🥩' }, { name: 'Lumpia', price: 150, icon: '🌯' }, { name: 'Pizza', price: 400, icon: '🍕' }, { name: 'Chicken Wings', price: 320, icon: '🍗' }, { name: 'Adobo', price: 280, icon: '🍚' }, { name: 'Pancit', price: 200, icon: '🍜' }, { name: 'Kare-Kare', price: 450, icon: '🥘' }, ],
+        };
+
+        // --- State Management ---
+        const saveState = () => { try { localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(db)); } catch (e) { console.error("Failed to save state:", e); } };
+        const loadState = () => {
+            try {
+                const savedState = localStorage.getItem(APP_STORAGE_KEY);
+                if (savedState) {
+                    const parsed = JSON.parse(savedState);
+                    if (!parsed.onlineBookings) parsed.onlineBookings = [];
+                    parsed.rooms.forEach(r => { if (r.sessionStart) r.sessionStart = new Date(r.sessionStart); if (r.sessionEnd) r.sessionEnd = new Date(r.sessionEnd); });
+                    parsed.queue.forEach(i => { if (i.timestamp) i.timestamp = new Date(i.timestamp); });
+                    parsed.logs.forEach(i => { if (i.timestamp) i.timestamp = new Date(i.timestamp); });
+                    db = parsed;
+                }
+            } catch (e) { console.error("Failed to load state:", e); }
+        };
+
+        // --- Helper Functions ---
+        const formatTime = (ms) => {
+            if (ms < 0) return '00:00:00';
+            const totalSeconds = Math.floor(ms / 1000), hours = Math.floor(totalSeconds / 3600), minutes = Math.floor((totalSeconds % 3600) / 60), seconds = totalSeconds % 60;
+            return [hours, minutes, seconds].map(v => String(v).padStart(2, '0')).join(':');
+        };
+        const logAction = (action, details = {}) => { db.logs.unshift({ timestamp: new Date(), userId, action, details }); if (db.logs.length > 500) db.logs.pop(); };
+        const findNextCustomerForRoom = (room) => {
+            if (room.reservedBy) { const reservedCustomer = db.queue.find(q => q.id === room.reservedBy.queueId); if (reservedCustomer) return reservedCustomer; }
+            const sortedQueue = db.queue.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+            for (const customerInQueue of sortedQueue) { const isReservedForAnyRoom = db.rooms.some(r => r.reservedBy && r.reservedBy.queueId === customerInQueue.id); if (!isReservedForAnyRoom) return customerInQueue; }
+            return null;
+        };
+        const calculateCost = (durationHours, discountType, addons = []) => {
+            const baseCharge = durationHours * ROOM_RATE_PER_HOUR, discountAmount = baseCharge * (DISCOUNT_RATES[discountType] || 0), roomCharge = baseCharge - discountAmount;
+            const addonTotal = addons.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            return { roomCharge: parseFloat(roomCharge.toFixed(2)), addonTotal: parseFloat(addonTotal.toFixed(2)), totalBill: parseFloat((roomCharge + addonTotal).toFixed(2)) };
+        };
+        const filterMenu = (query) => {
+            const q = (query || '').toLowerCase().trim(); if (q === '') return menu;
+            const filtered = {};
+            for (const category in menu) { const items = menu[category].filter(i => i.name.toLowerCase().includes(q)); if (items.length > 0) filtered[category] = items; }
+            return filtered;
+        };
+        const formatLogDetails = (log) => {
+            const { action, details } = log;
+            if (!details) return 'N/A';
+            if (action.startsWith('Checkout')) return `Customer: <span class="font-semibold">${details.customer}</span>, Total Collected: <span class="font-semibold text-green-600">${(details.totalCollected || 0).toFixed(2)}₱</span>`;
+            if (action.startsWith('New Check-in') || action.startsWith('Check-in')) return `Customer: <span class="font-semibold">${details.customer}</span>, Upfront: <span class="font-semibold">${(details.upfront || 0).toFixed(2)}₱</span>, Duration: <span class="font-semibold">${details.duration}h</span>`;
+            if (action.startsWith('Added New Order')) return `Items: <span class="font-semibold">${(details.items || []).map(i => `${i.name} x${i.quantity}`).join(', ')}</span>, Cost: <span class="font-semibold">${(details.cost || 0).toFixed(2)}₱</span>`;
+            if (action.startsWith('Customer added to Queue') || action.startsWith('Accepted Online Booking') || action.startsWith('New Online Booking Request')) return `Customer: <span class="font-semibold">${details.customer}</span>, Duration: <span class="font-semibold">${details.duration}h</span>`;
+            if (action.startsWith('Canceled')) return `Customer: <span class="font-semibold">${details.customerName}</span>`;
+            if (action.startsWith('Room')) return `Details: ${Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')}`;
+            return Object.entries(details).map(([k, v]) => `<span class="font-semibold">${k}:</span> ${v}`).join('; ');
+        };
+
+        // --- View Management ---
+        const openModal = (modalId) => {
+            if (modalId === 'addons-modal') { document.getElementById('addons-search-input').value = ''; renderAddonsModalContent(''); }
+            const modal = document.getElementById(modalId); if (!modal) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('is-open'), 10);
+        };
+        const closeModal = (modalId) => {
+            const modal = document.getElementById(modalId); if (!modal) return;
+            modal.classList.remove('is-open');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+        const closeAddonsModal = () => { closeModal('addons-modal'); calculateEstimatedCharge(); };
+        const switchTab = (tabName, roomId = null) => {
+            activeTab = tabName;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                const isActive = btn.dataset.tab === tabName;
+                btn.classList.toggle('font-semibold', isActive); btn.classList.toggle('text-indigo-600', isActive); btn.classList.toggle('border-indigo-600', isActive); btn.classList.toggle('text-gray-700', !isActive); btn.classList.toggle('border-transparent', !isActive);
+            });
+            const roomIndicator = document.getElementById('room-assignment-indicator'), targetRoomName = document.getElementById('target-room-name'), targetRoomIdInput = document.getElementById('target-room-id');
+            if (tabName === 'register') {
+                if (roomId) { const room = db.rooms.find(r => r.id === roomId); if (room) { targetRoomName.textContent = room.name; targetRoomIdInput.value = roomId; roomIndicator.classList.remove('hidden'); }
+                } else { targetRoomName.textContent = 'Automatically Assigned'; targetRoomIdInput.value = ''; roomIndicator.classList.add('hidden'); }
+                calculateEstimatedCharge(); 
+            } else { targetRoomIdInput.value = ''; roomIndicator.classList.add('hidden'); }
+            if (tabName === 'menu') { document.getElementById('menu-search-input').value = ''; renderMenuTab(''); }
+            if (tabName === 'analytics') { 
+                document.getElementById('analytics-log-search-input').value = '';
+                renderAnalyticsDashboard(); 
+            }
+            renderAll();
+        };
+
+        // --- Core Renderers ---
+        const renderAll = () => { renderRooms(); renderQueue(); };
+        const renderMenuTab = (searchQuery = '') => {
+            const container = document.getElementById('menu-display-container'); container.innerHTML = '';
+            const filteredMenu = filterMenu(searchQuery);
+            const categories = [ { key: 'drinks', title: 'Soft Drinks & Non-Alcoholic', icon: '🥤' }, { key: 'beer', title: 'Alcoholic Beverages', icon: '🍻' }, { key: 'food', title: 'Food & Snacks', icon: '🍕' }, ];
+            let contentGenerated = false;
+            categories.forEach(cat => {
+                if (filteredMenu[cat.key] && filteredMenu[cat.key].length > 0) {
+                    let itemsHTML = filteredMenu[cat.key].map(item => `<div class="bg-white p-4 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200 flex items-center space-x-3"><span class="text-3xl">${item.icon}</span><div><p class="text-lg font-semibold text-gray-900">${item.name}</p><p class="text-sm text-gray-600">${item.price.toFixed(2)} ₱</p></div></div>`).join('');
+                    container.innerHTML += `<div class="mb-8"><h3 class="text-3xl font-bold text-indigo-600 mb-4 flex items-center space-x-2"><span class="text-4xl">${cat.icon}</span> <span>${cat.title}</span></h3><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">${itemsHTML}</div></div>`;
+                    contentGenerated = true;
+                }
+            });
+            if (!contentGenerated) container.innerHTML = `<div class="text-center py-10 text-gray-500 col-span-full"><p class="text-xl">No menu items found matching "${searchQuery}".</p></div>`;
+        };
+        const renderRooms = () => {
+            const container = document.getElementById('tab-rooms'); container.innerHTML = '';
+            const now = Date.now();
+            if (db.rooms.length === 0) { container.innerHTML = `<div class="text-center text-gray-500 col-span-full py-12">No rooms initialized.</div>`; return; }
+            const sortedRooms = [...db.rooms].sort((a, b) => parseInt(a.id.slice(4)) - parseInt(b.id.slice(4)));
+            sortedRooms.forEach(room => {
+                let statusColor = 'bg-green-600', statusText = 'Available', sessionInfo = '', buttonGroup = '', cardClasses = '', onclickAction = '', reservedBy = room.reservedBy || null;
+                if (room.status === 'Occupied' && room.sessionEnd) {
+                    const timeRemaining = room.sessionEnd.getTime() - now;
+                    if (timeRemaining <= 0) { statusColor = 'bg-red-600 animate-pulse'; statusText = 'Time Expired'; } 
+                    else if (timeRemaining <= 1200000) { statusColor = 'bg-yellow-500'; statusText = 'Ending Soon'; } 
+                    else { statusColor = 'bg-indigo-600'; statusText = 'Occupied'; }
+                    sessionInfo = `<p class="text-lg font-bold text-gray-900 mb-1">${room.customerName}</p><p class="text-xs text-gray-600">Guests: ${room.peopleCount}</p><p class="text-xs text-gray-600">Paid: <span class="text-green-600 font-semibold">${(room.upfrontPayment || 0).toFixed(2)}</span> ₱</p><p class="text-xs text-red-600 font-bold mt-1">Due (Unpaid Orders): ${(room.additionalBill || 0).toFixed(2)} ₱</p><div class="mt-2 py-1 px-2 rounded-lg ${timeRemaining <= 1200000 ? 'bg-red-100' : 'bg-gray-100'}"><span class="text-xs font-medium text-gray-800 block">Time Left:</span><span class="text-xl font-extrabold text-gray-800">${formatTime(timeRemaining)}</span></div>`;
+                    buttonGroup = `<div class="flex space-x-2 mt-3"><button onclick="window.prepareNewOrder('${room.id}')" class="flex-1 py-2 bg-blue-500 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" /></svg><span>Order</span></button><button onclick="window.prepareCheckout('${room.id}')" class="flex-1 py-2 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg><span>Checkout</span></button></div>`;
+                } else if (room.status === 'Cleaning') {
+                    statusColor = 'bg-yellow-500'; statusText = 'Needs Cleaning';
+                    const nextCustomer = findNextCustomerForRoom(room);
+                    let nextCustomerInfo = '', buttonText = 'Mark as Clean';
+                    if (nextCustomer) { nextCustomerInfo = `<div class="mt-2 p-2 bg-blue-100 rounded-lg border border-blue-200"><p class="text-xs text-blue-800 font-semibold">Next Up (Call them!)</p><p class="text-sm text-blue-900 font-bold">${nextCustomer.customerName}</p></div>`; buttonText = 'Mark Clean & Check-in Next'; }
+                    sessionInfo = `<p class="text-lg font-bold text-gray-900 mb-2">Room Prep</p><p class="text-sm text-gray-600">Currently being cleaned.</p>${nextCustomerInfo}`;
+                    buttonGroup = `<div class="mt-3"><button onclick="window.handleMarkClean('${room.id}')" class="w-full py-2 bg-green-500 text-white text-xs font-semibold rounded-lg hover:bg-green-600 transition-colors">${buttonText}</button></div>`;
+                } else if (room.status === 'Available' && reservedBy) {
+                    statusColor = 'bg-blue-600'; statusText = `Reserved`;
+                    sessionInfo = `<p class="text-lg font-bold text-gray-900 mb-2">${reservedBy.customerName}</p><p class="text-sm text-gray-600">Status: Waiting</p>`;
+                    buttonGroup = `<div class="mt-3"><button onclick="window.cancelReservation('${room.id}')" class="w-full py-2 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-colors">Cancel Reservation</button></div>`;
+                } else {
+                    sessionInfo = `<p class="text-sm text-gray-500 mt-2">Ready for new customer.</p>`;
+                    cardClasses = 'cursor-pointer hover:shadow-indigo-500/20 hover:shadow-xl hover:-translate-y-1';
+                    onclickAction = `onclick="window.switchTab('register', '${room.id}')"`;
+                }
+                container.innerHTML += `<div ${onclickAction} class="bg-white p-4 rounded-xl shadow-lg border-t-4 border-indigo-500 ${cardClasses} transition-all duration-300"><div class="flex justify-between items-center mb-2"><h3 class="text-xl font-extrabold text-indigo-700">${room.name}</h3><span class="px-2.5 py-1 text-xs font-semibold rounded-full text-white ${statusColor}">${statusText}</span></div><div class="min-h-[90px]">${sessionInfo}</div>${buttonGroup}</div>`;
+            });
+        };
+        const renderQueue = () => {
+            const onlineContainer = document.getElementById('online-reservations-list');
+            const queueContainer = document.getElementById('queue-list');
+            const reservationContainer = document.getElementById('reservations-list');
+            onlineContainer.innerHTML = ''; queueContainer.innerHTML = ''; reservationContainer.innerHTML = '';
+
+            // Render Online Bookings
+            const sortedOnlineBookings = (db.onlineBookings || []).sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            if (sortedOnlineBookings.length === 0) {
+                onlineContainer.innerHTML = `<p class="text-gray-500 p-4 bg-gray-100 rounded-lg border border-gray-200">No new online reservations.</p>`;
+            } else {
+                sortedOnlineBookings.forEach(booking => {
+                    onlineContainer.innerHTML += `
+                        <div class="bg-yellow-50 p-4 rounded-lg flex justify-between items-center shadow-md border border-yellow-200 border-l-4 border-yellow-500">
+                            <div>
+                                <p class="text-lg font-semibold text-gray-900">${booking.customerName}</p>
+                                <p class="text-sm text-gray-700">Duration: ${booking.desiredDuration}h | Guests: ${booking.peopleCount}</p>
+                                <p class="text-xs text-gray-500">Booked: ${new Date(booking.timestamp).toLocaleTimeString()}</p>
+                            </div>
+                            <button onclick="window.acceptOnlineBooking('${booking.id}')" class="ml-4 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                                Accept
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+
+            // Render Main Queue
+            const activeReservations = db.rooms.filter(r => r.reservedBy);
+            const sortedQueue = [...db.queue].sort((a,b) => a.timestamp.getTime() - b.timestamp.getTime());
+            if (sortedQueue.length === 0) { queueContainer.innerHTML = `<p class="text-gray-500 p-4 bg-gray-100 rounded-lg border border-gray-200">The main queue is empty.</p>`; } 
+            else { sortedQueue.forEach((q, index) => { const isReserved = activeReservations.some(r => r.reservedBy && r.reservedBy.queueId === q.id), isNext = index === 0 && !isReserved; queueContainer.innerHTML += `<div class="bg-white p-4 rounded-lg flex justify-between items-center shadow-md border border-gray-200 border-l-4 ${isNext ? 'border-indigo-500' : isReserved ? 'border-blue-500' : 'border-gray-300'}"><div><p class="text-lg font-semibold text-gray-900 flex items-center gap-2">${q.customerName} ${isNext ? '<span class="text-xs text-white bg-indigo-600 font-bold px-2 py-0.5 rounded-full">NEXT</span>' : ''} ${isReserved ? '<span class="text-xs text-white bg-blue-600 font-bold px-2 py-0.5 rounded-full">RESERVED</span>' : ''}</p><p class="text-sm text-gray-700">Duration: ${q.desiredDuration}h | Guests: ${q.peopleCount}</p><p class="text-xs text-gray-500">Queued: ${q.timestamp.toLocaleTimeString()}</p></div><button onclick="window.cancelQueueItem('${q.id}', '${q.customerName}')" class="ml-4 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors">Cancel</button></div>`; }); }
+            
+            // Render Active Room Reservations
+            if (activeReservations.length > 0) { activeReservations.forEach(r => { reservationContainer.innerHTML += `<div class="bg-white p-4 rounded-lg border shadow-md border-gray-200 border-l-4 border-blue-500"><p class="text-lg font-semibold text-gray-900">${r.reservedBy.customerName} is reserved for ${r.name}</p></div>`; });
+            } else { reservationContainer.innerHTML = `<p class="text-gray-500 p-4 bg-gray-100 rounded-lg border border-gray-200">No rooms have active reservations.</p>`; }
+        };
+
+        // --- Analytics Dashboard Renderer ---
+        const renderAnalyticsLogs = (searchQuery = '') => {
+            const logTableBody = document.getElementById('analytics-log-table-body');
+            logTableBody.innerHTML = '';
+            
+            const recentLogs = db.logs.slice(0, 100);
+            const lowercasedQuery = searchQuery.toLowerCase().trim();
+            
+            const filteredLogs = lowercasedQuery
+                ? recentLogs.filter(log => {
+                    if (!log.details) return false;
+                    const customerName = log.details.customer || log.details.customerName || '';
+                    return customerName.toLowerCase().includes(lowercasedQuery);
+                  })
+                : recentLogs;
+
+            if (filteredLogs.length === 0) {
+                logTableBody.innerHTML = `<tr><td colspan="3" class="text-center p-4 text-gray-500">No matching logs found.</td></tr>`;
+            } else {
+                filteredLogs.forEach(log => {
+                    const row = `
+                        <tr class="hover:bg-gray-50">
+                            <td class="p-3 whitespace-nowrap text-gray-600">${new Date(log.timestamp).toLocaleString()}</td>
+                            <td class="p-3 font-medium text-gray-800">${log.action}</td>
+                            <td class="p-3 text-gray-700">${formatLogDetails(log)}</td>
+                        </tr>
+                    `;
+                    logTableBody.innerHTML += row;
+                });
+            }
+        };
+
+        const renderAnalyticsDashboard = () => {
+            const checkoutLogs = db.logs.filter(log => log.action.startsWith('Checkout'));
+            const checkinLogs = db.logs.filter(log => log.action.startsWith('New Check-in') || log.action.startsWith('Check-in'));
+            const addonLogs = db.logs.filter(log => log.action.startsWith('Added New Order'));
+
+            // KPIs
+            const totalRevenue = checkoutLogs.reduce((sum, log) => sum + (log.details.totalCollected || 0), 0);
+            const totalVisits = checkoutLogs.length;
+            const avgRevenue = totalVisits > 0 ? totalRevenue / totalVisits : 0;
+            
+            const hourCounts = checkinLogs.reduce((acc, log) => { const hour = new Date(log.timestamp).getHours(); acc[hour] = (acc[hour] || 0) + 1; return acc; }, {});
+            const busiestHour = Object.keys(hourCounts).length > 0 ? Object.entries(hourCounts).sort((a,b) => b[1] - a[1])[0][0] : 'N/A';
+
+            const addonCounts = [...checkinLogs, ...addonLogs].flatMap(log => log.details.addons || log.details.items || []).reduce((acc, item) => { acc[item.name] = (acc[item.name] || 0) + item.quantity; return acc; }, {});
+            const topAddon = Object.keys(addonCounts).length > 0 ? Object.entries(addonCounts).sort((a,b) => b[1] - a[1])[0][0] : 'N/A';
+
+            document.getElementById('kpi-total-revenue').textContent = `${totalRevenue.toFixed(2)} ₱`;
+            document.getElementById('kpi-avg-revenue').textContent = `${avgRevenue.toFixed(2)} ₱`;
+            document.getElementById('kpi-busiest-hour').textContent = busiestHour !== 'N/A' ? `${parseInt(busiestHour) % 12 || 12} ${parseInt(busiestHour) >= 12 ? 'PM' : 'AM'}` : 'N/A';
+            document.getElementById('kpi-top-addon').textContent = topAddon;
+
+            // Chart Data Processing
+            const dailyRevenueData = checkoutLogs.reduce((acc, log) => { const date = new Date(log.timestamp).toISOString().split('T')[0]; acc[date] = (acc[date] || 0) + log.details.totalCollected; return acc; }, {});
+            const roomRevenueData = checkoutLogs.reduce((acc, log) => { const roomName = log.action.split(' ')[1]; acc[roomName] = (acc[roomName] || 0) + log.details.totalCollected; return acc; }, {});
+            const peakHoursData = Array.from({length: 24}, (_, i) => hourCounts[i] || 0);
+            const popularAddonsData = Object.entries(addonCounts).sort((a,b) => b[1]-a[1]).slice(0, 5);
+            
+            // Render Charts
+            createChart('daily-revenue-chart', 'line', { labels: Object.keys(dailyRevenueData).reverse(), datasets: [{ label: 'Revenue', data: Object.values(dailyRevenueData).reverse(), borderColor: '#4F46E5', tension: 0.1, fill: false }] });
+            createChart('peak-hours-chart', 'bar', { labels: Array.from({length: 24}, (_, i) => `${i % 12 || 12} ${i < 12 ? 'AM' : 'PM'}`), datasets: [{ label: 'Check-ins', data: peakHoursData, backgroundColor: '#818CF8' }] });
+            createChart('room-revenue-chart', 'bar', { labels: Object.keys(roomRevenueData), datasets: [{ label: 'Revenue', data: Object.values(roomRevenueData), backgroundColor: '#6366F1' }] });
+            createChart('popular-addons-chart', 'doughnut', { labels: popularAddonsData.map(d => d[0]), datasets: [{ data: popularAddonsData.map(d => d[1]), backgroundColor: ['#4F46E5', '#6366F1', '#818CF8', '#A5B4FC', '#C7D2FE'] }] });
+        
+            // Render Logs Table initially
+            renderAnalyticsLogs();
+        };
+
+        const createChart = (canvasId, type, data) => {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            chartInstances[canvasId] = new Chart(ctx, { type, data, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: type === 'doughnut' } } } });
+        };
+        
+        // --- Action Handlers & Logic ---
+        window.acceptOnlineBooking = (bookingId) => {
+            const bookingIndex = db.onlineBookings.findIndex(b => b.id === bookingId);
+            if (bookingIndex === -1) return;
+            const [booking] = db.onlineBookings.splice(bookingIndex, 1);
+            booking.timestamp = new Date();
+            db.queue.push(booking);
+            logAction('Accepted Online Booking', { customer: booking.customerName, duration: booking.desiredDuration });
+            const availableRoom = db.rooms.find(r => r.status === 'Available' && !r.reservedBy);
+            if (availableRoom) {
+                const nextCustomer = findNextCustomerForRoom(availableRoom);
+                if (nextCustomer && nextCustomer.id === booking.id) {
+                    const sessionEnd = Date.now() + nextCustomer.desiredDuration * 3600000;
+                    const upfrontAmount = calculateCost(nextCustomer.desiredDuration, nextCustomer.discountType, nextCustomer.addons).totalBill;
+                    Object.assign(availableRoom, { status: 'Occupied', customerName: nextCustomer.customerName, peopleCount: nextCustomer.peopleCount, sessionStart: new Date(), sessionEnd: new Date(sessionEnd), durationHours: nextCustomer.desiredDuration, discountType: nextCustomer.discountType, addons: (nextCustomer.addons || []).map(a => ({...a, paidUpfront: true})), totalBill: upfrontAmount, upfrontPayment: upfrontAmount, additionalBill: 0, reservedBy: null });
+                    db.queue = db.queue.filter(q => q.id !== nextCustomer.id);
+                    logAction(`Check-in ${availableRoom.name} from Online Booking`, { customer: nextCustomer.customerName, upfront: upfrontAmount, duration: nextCustomer.desiredDuration });
+                }
+            }
+            saveState();
+            renderAll();
+        };
+        window.prepareCheckout = (roomId) => {
+            const room = db.rooms.find(r => r.id === roomId); if (!room) return;
+            const unpaidOrders = room.additionalBill || 0, durationMs = Date.now() - room.sessionStart.getTime(), actualDurationHours = Math.ceil(durationMs / 3600000);
+            const fullCost = calculateCost(actualDurationHours, room.discountType, room.addons), initialRoomCostPaid = room.upfrontPayment - calculateCost(room.durationHours, room.discountType, room.addons.filter(a => a.paidUpfront)).addonTotal;
+            const timeDifferenceCharge = Math.max(0, fullCost.roomCharge - initialRoomCostPaid), totalDue = timeDifferenceCharge + unpaidOrders;
+            document.getElementById('final-bill-details').innerHTML = `<p>Room: <span class="font-semibold">${room.name}</span></p><p>Customer: <span class="font-semibold">${room.customerName}</span></p><p>Time Billed: <span class="font-semibold">${actualDurationHours} hours</span></p><hr class="my-2"><p class="text-lg font-bold text-red-600">Unpaid Orders Total: <span class="font-extrabold">${unpaidOrders.toFixed(2)} ₱</span></p>${timeDifferenceCharge > 0 ? `<p class="text-sm font-bold text-yellow-600">Time Round-up: <span class="font-extrabold">${timeDifferenceCharge.toFixed(2)} ₱</span></p>` : ''}`;
+            document.getElementById('final-total').textContent = totalDue.toFixed(2);
+            document.getElementById('confirm-checkout-btn').onclick = () => handleCheckout(roomId, totalDue, actualDurationHours);
+            openModal('checkout-modal');
+        };
+        const handleCheckout = (roomId, totalDue, actualDurationHours) => {
+            closeModal('checkout-modal');
+            const room = db.rooms.find(r => r.id === roomId); if (!room) return;
+            logAction(`Checkout ${room.name}`, { customer: room.customerName, totalCollected: totalDue + room.upfrontPayment, duration: actualDurationHours + 'h', addons: room.addons });
+            Object.assign(room, { status: 'Cleaning', customerName: '', peopleCount: 0, sessionStart: null, sessionEnd: null, durationHours: 0, totalBill: 0, upfrontPayment: 0, additionalBill: 0, discountType: 'none', addons: [] });
+            saveState(); renderAll();
+        };
+        window.handleMarkClean = (roomId) => {
+            const room = db.rooms.find(r => r.id === roomId); if (!room) return;
+            const nextCustomer = findNextCustomerForRoom(room);
+            if (nextCustomer) {
+                const sessionEnd = Date.now() + nextCustomer.desiredDuration * 3600000;
+                Object.assign(room, { status: 'Occupied', customerName: nextCustomer.customerName, peopleCount: nextCustomer.peopleCount, sessionStart: new Date(), sessionEnd: new Date(sessionEnd), durationHours: nextCustomer.desiredDuration, discountType: nextCustomer.discountType, addons: nextCustomer.addons.map(a => ({...a, paidUpfront: true})), totalBill: nextCustomer.initialBill, upfrontPayment: nextCustomer.initialBill, additionalBill: 0, reservedBy: null });
+                db.queue = db.queue.filter(q => q.id !== nextCustomer.id);
+                logAction(`Check-in ${room.name} from Queue`, { customer: nextCustomer.customerName, addons: nextCustomer.addons, duration: nextCustomer.desiredDuration });
+            } else { room.status = 'Available'; room.reservedBy = null; logAction(`Room ${room.name} Marked Clean`, {}); }
+            saveState(); renderAll();
+        };
+        window.cancelQueueItem = (queueId, customerName) => { db.queue = db.queue.filter(q => q.id !== queueId); const reservedRoom = db.rooms.find(r => r.reservedBy && r.reservedBy.queueId === queueId); if (reservedRoom) reservedRoom.reservedBy = null; logAction('Canceled Queue/Registration', { customerName }); saveState(); renderAll(); };
+        window.cancelReservation = (roomId) => { const room = db.rooms.find(r => r.id === roomId); if (!room || !room.reservedBy) return; const customerName = room.reservedBy.customerName; db.queue = db.queue.filter(q => q.id !== room.reservedBy.queueId); room.reservedBy = null; logAction('Canceled Room Reservation', { room: room.name, customerName }); saveState(); renderAll(); };
+        window.prepareNewOrder = (roomId) => { const room = db.rooms.find(r => r.id === roomId); if (!room) return; currentRoomIdForOrder = roomId; currentOrderAddons = []; document.getElementById('order-room-name').textContent = room.name; document.getElementById('order-search-input').value = ''; window.renderOrderModalContent(''); openModal('order-modal'); };
+        window.renderOrderModalContent = (q = '') => renderModalMenuContent('order', q, currentOrderAddons, updateCurrentOrderAddonsState);
+        window.renderAddonsModalContent = (q = '') => renderModalMenuContent('addons', q, selectedAddons, updateSelectedAddonsState);
+        const renderModalMenuContent = (modalType, query, selectionState, updateFn) => {
+            const container = document.getElementById(`${modalType}-modal-container`);
+            const filtered = filterMenu(query); let itemsHTML = ''; let contentGenerated = false;
+            Object.values(filtered).flat().forEach(item => { const current = selectionState.find(a => a.name === item.name); const quantity = current ? current.quantity : 0; contentGenerated = true; itemsHTML += `<div class="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg border border-gray-200"><span class="text-2xl">${item.icon}</span><div class="flex-grow"><p class="font-medium text-gray-800">${item.name}</p><p class="text-sm text-gray-500">${item.price.toFixed(2)} ₱</p></div><input type="number" data-item-name="${item.name}" data-item-price="${item.price}" min="0" value="${quantity}" class="${modalType}-quantity w-20 p-2 rounded-md bg-white border-gray-300 text-center focus:ring-2 focus:ring-indigo-500"></div>`; });
+            container.innerHTML = contentGenerated ? itemsHTML : `<p class="text-center py-8 text-gray-500">No items found matching your search.</p>`;
+            document.querySelectorAll(`.${modalType}-quantity`).forEach(input => input.addEventListener('input', updateFn));
+            updateFn();
+        };
+        const updateSelectedAddonsState = () => { selectedAddons = updateAddonsStateFromDOM('addons'); calculateEstimatedCharge(); };
+        const updateCurrentOrderAddonsState = () => { currentOrderAddons = updateAddonsStateFromDOM('order'); };
+        const updateAddonsStateFromDOM = (modalType) => {
+            let newSelection = [], totalCost = 0, totalQty = 0;
+            const renderedItemNames = new Set(Array.from(document.querySelectorAll(`.${modalType}-quantity`)).map(i => i.dataset.itemName));
+            const oldState = modalType === 'addons' ? selectedAddons : currentOrderAddons;
+            oldState.forEach(oldItem => { if (!renderedItemNames.has(oldItem.name)) newSelection.push(oldItem); });
+            document.querySelectorAll(`.${modalType}-quantity`).forEach(input => { const qty = parseInt(input.value) || 0; if (qty > 0) { newSelection = newSelection.filter(item => item.name !== input.dataset.itemName); newSelection.push({ name: input.dataset.itemName, price: parseFloat(input.dataset.itemPrice), quantity: qty }); } });
+            newSelection.forEach(item => { totalCost += item.price * item.quantity; totalQty += item.quantity; });
+            document.getElementById(`${modalType}-subtotal`).textContent = totalCost.toFixed(2);
+            if (modalType === 'addons') { document.getElementById('addons-count').textContent = totalQty; document.getElementById('addons-summary').innerHTML = newSelection.map(i => `<span class="bg-indigo-200 text-indigo-800 font-medium px-2.5 py-1 rounded-full">${i.name} x${i.quantity}</span>`).join(''); }
+            return newSelection;
+        };
+        window.handleConfirmNewOrder = () => {
+            closeModal('order-modal');
+            if (currentOrderAddons.length === 0 || !currentRoomIdForOrder) return;
+            const room = db.rooms.find(r => r.id === currentRoomIdForOrder); if (!room) return;
+            const orderCost = currentOrderAddons.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const newAddonsForDB = currentOrderAddons.map(a => ({...a, paidUpfront: false}));
+            room.addons.push(...newAddonsForDB); room.totalBill += orderCost; room.additionalBill = (room.additionalBill || 0) + orderCost;
+            logAction(`Added New Order to ${room.name}`, { items: newAddonsForDB, cost: orderCost });
+            saveState(); renderAll();
+            currentRoomIdForOrder = null; currentOrderAddons = [];
+        };
+        const handleRegister = (event) => {
+            event.preventDefault();
+            const form = event.target, customerName = form.customerName.value.trim(), peopleCount = parseInt(form.peopleCount.value), durationHours = parseInt(form.sessionDuration.value), discountType = form.discountType.value, addons = selectedAddons, preSelectedRoomId = document.getElementById('target-room-id').value;
+            if (!customerName || peopleCount < 1) return;
+            const initialCost = calculateCost(durationHours, discountType, addons), upfrontAmount = initialCost.totalBill;
+            let assignedRoom = null;
+            if (preSelectedRoomId) { const room = db.rooms.find(r => r.id === preSelectedRoomId); if (room && room.status === 'Available' && !room.reservedBy) assignedRoom = room; }
+            if (!assignedRoom) assignedRoom = db.rooms.find(r => r.status === 'Available' && !r.reservedBy);
+            if (assignedRoom) {
+                const sessionEnd = Date.now() + durationHours * 3600000;
+                Object.assign(assignedRoom, { status: 'Occupied', customerName, peopleCount, sessionStart: new Date(), sessionEnd: new Date(sessionEnd), durationHours, discountType, addons: addons.map(a => ({...a, paidUpfront: true})), totalBill: upfrontAmount, upfrontPayment: upfrontAmount, additionalBill: 0, reservedBy: null });
+                logAction(`New Check-in to ${assignedRoom.name}`, { customer: customerName, duration: durationHours, upfront: upfrontAmount, addons: addons });
+            } else {
+                db.queue.push({ id: `q_${Date.now()}`, customerName, desiredDuration: durationHours, peopleCount, timestamp: new Date(), addons, discountType, initialBill: upfrontAmount });
+                logAction(`Customer added to Queue`, { customer: customerName, duration: durationHours, addons: addons });
+            }
+            form.reset(); selectedAddons = []; calculateEstimatedCharge(); saveState();
+            switchTab(assignedRoom ? 'rooms' : 'queue');
+        };
+        const calculateEstimatedCharge = () => {
+            const duration = parseInt(document.getElementById('sessionDuration').value) || 1, discountType = document.getElementById('discountType').value;
+            const cost = calculateCost(duration, discountType, selectedAddons);
+            document.getElementById('estimated-room-charge').textContent = cost.totalBill.toFixed(2);
+        };
+        
+        // --- Particle Background Logic ---
+        const initParticleBackground = () => {
+            const canvas = document.getElementById('particle-canvas'); if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let particles = []; let mouse = { x: null, y: null };
+            const setCanvasSize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+            const initParticles = () => { particles = []; let numberOfParticles = (canvas.width * canvas.height) / 12000; for (let i = 0; i < numberOfParticles; i++) { particles.push(new Particle()); } };
+            window.addEventListener('resize', () => { setCanvasSize(); initParticles(); });
+            setCanvasSize(); initParticles();
+            window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+            window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+            class Particle { constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 2 + 1; this.speedX = Math.random() * 1 - 0.5; this.speedY = Math.random() * 1 - 0.5; this.color = 'rgba(165, 180, 252, 0.5)'; } update() { if (this.x > canvas.width || this.x < 0) this.speedX *= -1; if (this.y > canvas.height || this.y < 0) this.speedY *= -1; this.x += this.speedX; this.y += this.speedY; } draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); } }
+            const connectParticles = () => {
+                let opacityValue = 1;
+                for (let a = 0; a < particles.length; a++) {
+                    for (let b = a; b < particles.length; b++) { let distance = Math.hypot(particles[a].x - particles[b].x, particles[a].y - particles[b].y); if (distance < 100) { opacityValue = 1 - (distance / 100); ctx.strokeStyle = `rgba(199, 210, 254, ${opacityValue})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particles[a].x, particles[a].y); ctx.lineTo(particles[b].x, particles[b].y); ctx.stroke(); } }
+                    if (mouse.x && mouse.y) { let distanceToMouse = Math.hypot(particles[a].x - mouse.x, particles[a].y - mouse.y); if (distanceToMouse < 200) { opacityValue = 1 - (distanceToMouse / 200); ctx.strokeStyle = `rgba(129, 140, 248, ${opacityValue})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particles[a].x, particles[a].y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke(); } }
+                }
+            };
+            const animate = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); connectParticles(); requestAnimationFrame(animate); };
+            animate();
+        };
+
+        // --- INITIALIZATION ---
+        const initializeApp = () => {
+            document.getElementById('auth-status').innerHTML = `Mode: <span class="font-mono text-gray-900">Local Storage</span>`;
+            loadState();
+            if (db.rooms.length === 0) { for (let i = 1; i <= 10; i++) db.rooms.push({ id: `room${i}`, name: `Room ${i}`, status: 'Available', customerName: '', peopleCount: 0, sessionStart: null, sessionEnd: null, durationHours: 0, discountType: 'none', addons: [], totalBill: 0, upfrontPayment: 0, additionalBill: 0, cleaningEnd: null, reservedBy: null }); saveState(); }
+            document.querySelectorAll('.tab-button').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+            document.getElementById('sessionDuration').addEventListener('change', calculateEstimatedCharge);
+            document.getElementById('discountType').addEventListener('change', calculateEstimatedCharge);
+            document.getElementById('register-form').addEventListener('submit', handleRegister);
+            initParticleBackground();
+            
+            // Live update interval to sync with localStorage and update UI
+            setInterval(() => {
+                loadState(); // Reload data from localStorage to see changes from user page
+                renderRooms(); // This keeps room timers ticking
+                
+                // Update tab button counts
+                const roomsTabButton = document.querySelector('.tab-button[data-tab="rooms"]');
+                if (roomsTabButton) roomsTabButton.textContent = `Room Status (${db.rooms.length})`;
+                
+                const queueTabButton = document.querySelector('.tab-button[data-tab="queue"]');
+                if (queueTabButton) {
+                    const queueCount = db.queue.length;
+                    const onlineCount = (db.onlineBookings || []).length;
+                    const baseText = 'Queue & Reservations';
+                    let badgeHTML = '';
+                    if (onlineCount > 0) {
+                        badgeHTML += ` <span class="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full animate-pulse">${onlineCount}</span>`;
+                    }
+                    if (queueCount > 0) {
+                        badgeHTML += ` <span class="ml-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-indigo-100 bg-indigo-600 rounded-full">${queueCount}</span>`;
+                    }
+                    queueTabButton.innerHTML = badgeHTML ? baseText + badgeHTML : baseText;
+                }
+
+                // If the queue tab is active, re-render the list itself
+                if (activeTab === 'queue') renderQueue();
+                
+            }, 1500); // Refresh every 1.5 seconds
+
+            switchTab('rooms');
+        };
+
+        Object.assign(window, { openModal, closeModal, closeAddonsModal, switchTab, prepareCheckout, handleMarkClean, cancelQueueItem, cancelReservation, prepareNewOrder, renderOrderModalContent, handleConfirmNewOrder, renderMenuTab, renderAddonsModalContent, renderAnalyticsLogs, acceptOnlineBooking });
+        initializeApp();
+    </script>
+</body>
+</html>
