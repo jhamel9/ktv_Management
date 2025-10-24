@@ -266,6 +266,33 @@
         </div>
     </div>
 
+    <!-- EXTEND SESSION MODAL (For Occupied Rooms) -->
+    <div id="extend-session-modal" class="modal hidden fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex justify-center items-center p-4" onclick="if (event.target === this) closeModal('extend-session-modal')">
+        <div class="modal-content bg-white p-8 rounded-xl max-w-md w-full shadow-2xl">
+            <h3 class="text-2xl font-bold mb-4 text-gray-900">Extend Session</h3>
+            <div class="space-y-4 mb-6 text-gray-700">
+                <p>Room: <span id="extend-room-name" class="font-semibold text-indigo-600"></span></p>
+                <p>Current End Time: <span id="extend-current-end-time" class="font-semibold"></span></p>
+                <div>
+                    <label for="extend-duration" class="block text-sm font-medium text-gray-700 mb-1">Add Duration (Hours)</label>
+                    <select id="extend-duration" class="block w-full rounded-lg border-gray-300 bg-white text-gray-800 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 p-3">
+                        <option value="1">1 Hour</option>
+                        <option value="2">2 Hours</option>
+                        <option value="3">3 Hours</option>
+                    </select>
+                </div>
+                <p>New Estimated End Time: <span id="extend-new-end-time" class="font-semibold text-green-600"></span></p>
+                <p class="text-lg font-bold text-indigo-700">Additional Cost: <span id="extend-additional-cost" class="text-gray-900">0.00</span> ₱</p>
+                <p class="text-lg font-bold text-indigo-700">New Upfront Total: <span id="extend-new-upfront-total" class="text-gray-900">0.00</span> ₱</p>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeModal('extend-session-modal')" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
+                <button id="confirm-extend-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">Confirm Extension</button>
+            </div>
+        </div>
+    </div>
+
+
     <!-- View Switcher -->
     <button type="button" onclick="window.location.href='user.html'" title="Switch to Customer View" class="fixed bottom-6 right-6 bg-indigo-600 text-white p-3 rounded-full shadow-lg hover:bg-indigo-700 transition-all duration-300 z-50">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -282,6 +309,7 @@
         let selectedAddons = [];
         let currentRoomIdForOrder = null;
         let currentOrderAddons = [];
+        let currentRoomIdForExtension = null; // NEW: Track room for extension
         let chartInstances = {}; // To hold our chart objects
 
         // --- Core Data Structures & Constants ---
@@ -301,6 +329,10 @@
                 if (savedState) {
                     const parsed = JSON.parse(savedState);
                     if (!parsed.onlineBookings) parsed.onlineBookings = [];
+                    // Ensure queue and logs arrays exist
+                    if (!parsed.queue) parsed.queue = [];
+                    if (!parsed.logs) parsed.logs = [];
+
                     parsed.rooms.forEach(r => { if (r.sessionStart) r.sessionStart = new Date(r.sessionStart); if (r.sessionEnd) r.sessionEnd = new Date(r.sessionEnd); });
                     parsed.queue.forEach(i => { if (i.timestamp) i.timestamp = new Date(i.timestamp); });
                     parsed.logs.forEach(i => { if (i.timestamp) i.timestamp = new Date(i.timestamp); });
@@ -341,6 +373,7 @@
             if (action.startsWith('Added New Order')) return `Items: <span class="font-semibold">${(details.items || []).map(i => `${i.name} x${i.quantity}`).join(', ')}</span>, Cost: <span class="font-semibold">${(details.cost || 0).toFixed(2)}₱</span>`;
             if (action.startsWith('Customer added to Queue') || action.startsWith('Accepted Online Booking') || action.startsWith('New Online Booking Request')) return `Customer: <span class="font-semibold">${details.customer}</span>, Duration: <span class="font-semibold">${details.duration}h</span>`;
             if (action.startsWith('Canceled')) return `Customer: <span class="font-semibold">${details.customerName}</span>`;
+            if (action.startsWith('Extended')) return `Customer: <span class="font-semibold">${details.customer}</span>, Added: <span class="font-semibold">${details.addedHours}h</span>, Cost: <span class="font-semibold">${(details.additionalCost || 0).toFixed(2)}₱</span>`;
             if (action.startsWith('Room')) return `Details: ${Object.entries(details).map(([k, v]) => `${k}: ${v}`).join(', ')}`;
             return Object.entries(details).map(([k, v]) => `<span class="font-semibold">${k}:</span> ${v}`).join('; ');
         };
@@ -409,7 +442,13 @@
                     else if (timeRemaining <= 1200000) { statusColor = 'bg-yellow-500'; statusText = 'Ending Soon'; } 
                     else { statusColor = 'bg-indigo-600'; statusText = 'Occupied'; }
                     sessionInfo = `<p class="text-lg font-bold text-gray-900 mb-1">${room.customerName}</p><p class="text-xs text-gray-600">Guests: ${room.peopleCount}</p><p class="text-xs text-gray-600">Paid: <span class="text-green-600 font-semibold">${(room.upfrontPayment || 0).toFixed(2)}</span> ₱</p><p class="text-xs text-red-600 font-bold mt-1">Due (Unpaid Orders): ${(room.additionalBill || 0).toFixed(2)} ₱</p><div class="mt-2 py-1 px-2 rounded-lg ${timeRemaining <= 1200000 ? 'bg-red-100' : 'bg-gray-100'}"><span class="text-xs font-medium text-gray-800 block">Time Left:</span><span class="text-xl font-extrabold text-gray-800">${formatTime(timeRemaining)}</span></div>`;
-                    buttonGroup = `<div class="flex space-x-2 mt-3"><button onclick="window.prepareNewOrder('${room.id}')" class="flex-1 py-2 bg-blue-500 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" /></svg><span>Order</span></button><button onclick="window.prepareCheckout('${room.id}')" class="flex-1 py-2 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg><span>Checkout</span></button></div>`;
+                    buttonGroup = `<div class="flex space-x-1.5 mt-3">
+                        <button onclick="window.prepareNewOrder('${room.id}')" class="flex-1 py-2 bg-blue-500 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" /></svg><span>Order</span></button>
+                        <button onclick="window.prepareExtendSession('${room.id}')" class="flex-1 py-2 bg-indigo-500 text-white text-xs font-semibold rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center space-x-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span>Extend</span>
+                        </button>
+                        <button onclick="window.prepareCheckout('${room.id}')" class="flex-1 py-2 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center space-x-1.5"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg><span>Checkout</span></button></div>`;
                 } else if (room.status === 'Cleaning') {
                     statusColor = 'bg-yellow-500'; statusText = 'Needs Cleaning';
                     const nextCustomer = findNextCustomerForRoom(room);
@@ -630,6 +669,64 @@
             saveState(); renderAll();
             currentRoomIdForOrder = null; currentOrderAddons = [];
         };
+
+        // NEW: Extend Session Logic
+        window.prepareExtendSession = (roomId) => {
+            const room = db.rooms.find(r => r.id === roomId);
+            if (!room || room.status !== 'Occupied' || !room.sessionEnd) return;
+
+            currentRoomIdForExtension = roomId;
+
+            document.getElementById('extend-room-name').textContent = room.name;
+            document.getElementById('extend-current-end-time').textContent = room.sessionEnd.toLocaleTimeString();
+
+            const extendDurationSelect = document.getElementById('extend-duration');
+            extendDurationSelect.value = "1"; // Default to 1 hour extension
+            
+            const updateExtensionDetails = () => {
+                const durationToAdd = parseInt(extendDurationSelect.value);
+                const newSessionEnd = new Date(room.sessionEnd.getTime() + durationToAdd * 3600000);
+                document.getElementById('extend-new-end-time').textContent = newSessionEnd.toLocaleTimeString();
+
+                const additionalCost = calculateCost(durationToAdd, room.discountType, []).roomCharge; // Only room charge for extension
+                document.getElementById('extend-additional-cost').textContent = additionalCost.toFixed(2);
+                
+                const newUpfrontTotal = room.upfrontPayment + additionalCost;
+                document.getElementById('extend-new-upfront-total').textContent = newUpfrontTotal.toFixed(2);
+                
+                document.getElementById('confirm-extend-btn').onclick = () => handleExtendSession(roomId, durationToAdd, additionalCost, newUpfrontTotal);
+            };
+
+            extendDurationSelect.onchange = updateExtensionDetails;
+            updateExtensionDetails(); // Initial calculation
+
+            openModal('extend-session-modal');
+        };
+
+        const handleExtendSession = (roomId, durationToAdd, additionalCost, newUpfrontTotal) => {
+            closeModal('extend-session-modal');
+            const room = db.rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            room.sessionEnd = new Date(room.sessionEnd.getTime() + durationToAdd * 3600000);
+            room.durationHours += durationToAdd; // Update total duration
+            room.totalBill = newUpfrontTotal; // Total bill now includes extension (assuming extension is paid upfront)
+            room.upfrontPayment = newUpfrontTotal; // Assuming extension is paid upfront
+
+            logAction(`Extended ${room.name} Session`, {
+                customer: room.customerName,
+                addedHours: durationToAdd,
+                additionalCost: additionalCost,
+                newTotalUpfront: newUpfrontTotal
+            });
+
+            saveState();
+            renderAll();
+            currentRoomIdForExtension = null;
+        };
+        // End NEW: Extend Session Logic
+
+
         const handleRegister = (event) => {
             event.preventDefault();
             const form = event.target, customerName = form.customerName.value.trim(), peopleCount = parseInt(form.peopleCount.value), durationHours = parseInt(form.sessionDuration.value), discountType = form.discountType.value, addons = selectedAddons, preSelectedRoomId = document.getElementById('target-room-id').value;
@@ -716,12 +813,12 @@
                 // If the queue tab is active, re-render the list itself
                 if (activeTab === 'queue') renderQueue();
                 
-            }, 1500); // Refresh every 1.5 seconds
+            }, 1000); // Refresh every 1 second for a more "live" feel
 
             switchTab('rooms');
         };
 
-        Object.assign(window, { openModal, closeModal, closeAddonsModal, switchTab, prepareCheckout, handleMarkClean, cancelQueueItem, cancelReservation, prepareNewOrder, renderOrderModalContent, handleConfirmNewOrder, renderMenuTab, renderAddonsModalContent, renderAnalyticsLogs, acceptOnlineBooking });
+        Object.assign(window, { openModal, closeModal, closeAddonsModal, switchTab, prepareCheckout, handleMarkClean, cancelQueueItem, cancelReservation, prepareNewOrder, renderOrderModalContent, handleConfirmNewOrder, renderMenuTab, renderAddonsModalContent, renderAnalyticsLogs, acceptOnlineBooking, prepareExtendSession });
         initializeApp();
     </script>
 </body>
